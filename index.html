@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trend Chart Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .form-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .savings-container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .savings-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-family: Arial, sans-serif;
+            background-color: #40E0D0; /* Turquoise */
+            color: white;
+        }
+        .savings-circle:nth-child(2) {
+            background-color: #0000FF; /* Blue */
+        }
+        .savings-circle:nth-child(3) {
+            background-color: #FF0000; /* Red */
+        }
+        .savings-circle:nth-child(4) {
+            background-color: #800080; /* Purple */
+        }
+        .savings-circle h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .savings-circle p {
+            margin: 5px 0 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .savings-output {
+            text-align: center;
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Trend Calculator</h1>
+    <div class="form-container">
+        <div class="form-row">
+            <div>
+                <label for="numEmployees">Number of Employees:</label><br>
+                <input type="number" id="numEmployees" name="numEmployees" required>
+            </div>
+            <div>
+                <label for="currentPremium">Current Annualized Plan Spend ($):</label><br>
+                <input type="number" id="currentPremium" name="currentPremium" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div>
+                <label for="trendPercentage">Trend Percentage (%):</label><br>
+                <input type="range" id="trendPercentage" name="trendPercentage" min="1" max="20" step="1" value="4" oninput="updateTrendLabel(this.value)">
+                <span id="trendLabel">4%</span>
+            </div>
+        </div>
+        <button type="button" onclick="generateChart()">Generate Chart</button>
+    </div>
+
+    <canvas id="trendChart" width="800" height="400"></canvas>
+
+    <div class="savings-container">
+        <div class="savings-circle">
+            <h3>1 Year Savings</h3>
+            <p id="savingsYear1">$0</p>
+        </div>
+        <div class="savings-circle">
+            <h3>3 Year Savings</h3>
+            <p id="savingsYear3">$0</p>
+        </div>
+        <div class="savings-circle">
+            <h3>5 Year Savings</h3>
+            <p id="savingsYear5">$0</p>
+        </div>
+        <div class="savings-circle">
+            <h3>10 Year Savings</h3>
+            <p id="savingsYear10">$0</p>
+        </div>
+    </div>
+
+    <div class="savings-output">
+        <p>Annual Savings for Every 1% Decrease in Trend: <span id="annualSavingsPerPercent">$0</span></p>
+        <p>Total 10-Year Savings for Every 1% Decrease in Trend: <span id="totalSavingsPerPercent">$0</span></p>
+    </div>
+
+    <script>
+        let chartInstance; // To store the chart instance
+
+        function updateTrendLabel(value) {
+            document.getElementById('trendLabel').innerText = `${value}%`;
+        }
+
+        function formatNumberWithCommas(number) {
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function calculateAnnualSavingsPerPercent(currentPremium, trendPercentage) {
+            const originalPremium = currentPremium * (1 + (trendPercentage / 100));
+            const reducedPremium = currentPremium * (1 + ((trendPercentage - 1) / 100));
+            return originalPremium - reducedPremium;
+        }
+
+        function calculateTotalSavingsPerPercent(currentPremium, trendPercentage) {
+            const originalPremium = currentPremium * Math.pow(1 + (trendPercentage / 100), 10);
+            const reducedPremium = currentPremium * Math.pow(1 + ((trendPercentage - 1) / 100), 10);
+            return originalPremium - reducedPremium;
+        }
+
+        function calculateCumulativeSavings(hphpPremiums, projectedPremiums, years) {
+            let cumulativeSavings = 0;
+            for (let i = 1; i <= years; i++) {
+                cumulativeSavings += Math.abs(hphpPremiums[i] - projectedPremiums[i]);
+            }
+            return cumulativeSavings;
+        }
+
+        function generateChart() {
+            const numEmployees = parseFloat(document.getElementById('numEmployees').value);
+            const currentPremium = parseFloat(document.getElementById('currentPremium').value);
+            const trendPercentage = parseFloat(document.getElementById('trendPercentage').value);
+
+            if (!currentPremium || !trendPercentage || !numEmployees) {
+                alert('Please fill in all fields.');
+                return;
+            }
+
+            const years = Array.from({ length: 11 }, (_, i) => i);
+            const trendRate = 1 + (trendPercentage / 100);
+            const projectedPremiums = years.map(year => currentPremium * Math.pow(trendRate, year));
+
+            const hphpTrendRate = 1 + (4 / 100);
+            const hphpProjectedPremiums = years.map(year => currentPremium * Math.pow(hphpTrendRate, year));
+
+            document.getElementById('savingsYear1').innerText = `$${formatNumberWithCommas(calculateCumulativeSavings(hphpProjectedPremiums, projectedPremiums, 1))}`;
+            document.getElementById('savingsYear3').innerText = `$${formatNumberWithCommas(calculateCumulativeSavings(hphpProjectedPremiums, projectedPremiums, 3))}`;
+            document.getElementById('savingsYear5').innerText = `$${formatNumberWithCommas(calculateCumulativeSavings(hphpProjectedPremiums, projectedPremiums, 5))}`;
+            document.getElementById('savingsYear10').innerText = `$${formatNumberWithCommas(calculateCumulativeSavings(hphpProjectedPremiums, projectedPremiums, 10))}`;
+
+            const annualSavingsPerPercent = calculateAnnualSavingsPerPercent(currentPremium, trendPercentage);
+            document.getElementById('annualSavingsPerPercent').innerText = `$${formatNumberWithCommas(annualSavingsPerPercent)}`;
+
+            const totalSavingsPerPercent = calculateTotalSavingsPerPercent(currentPremium, trendPercentage);
+            document.getElementById('totalSavingsPerPercent').innerText = `$${formatNumberWithCommas(totalSavingsPerPercent)}`;
+
+            if (chartInstance) {
+                chartInstance.destroy(); // Clear existing chart instance
+            }
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: years.map(year => `Year ${year}`),
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Total Premium (Selected Trend)',
+                            data: projectedPremiums,
+                            backgroundColor: 'rgba(255, 0, 0, 0.6)',
+                            borderColor: 'rgba(255, 0, 0, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            type: 'line',
+                            label: 'Total Premium (HPHP Trend)',
+                            data: hphpProjectedPremiums,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Years'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Total Premium ($)'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
